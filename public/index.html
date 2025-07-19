@@ -2,16 +2,49 @@
 <html>
 <head><title>PingTest</title></head>
 <body>
-  <button id="pingBtn">Send Ping</button>
-  <div id="log"></div>
-  <hr>
-  <input id="chatInput" placeholder="Type a message..."/>
-  <button id="sendChat">Send</button>
+  <canvas id="game" width="800" height="400" style="border: 1px solid #333"></canvas>
+  <div>
+    <input id="chatInput" placeholder="Chat..."/>
+    <button id="sendChat">Send</button>
+    <button id="sendPing">Ping</button>
+    <div id="log"></div>
+  </div>
   <ul id="messages"></ul>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
     const socket = io();
+
+    // Local input
+    let upPressed = false, downPressed = false;
+    document.addEventListener('keydown', e => {
+      if (e.key === 'ArrowUp') upPressed = true;
+      if (e.key === 'ArrowDown') downPressed = true;
+    });
+    document.addEventListener('keyup', e => {
+      if (e.key === 'ArrowUp') upPressed = false;
+      if (e.key === 'ArrowDown') downPressed = false;
+    });
+
+    // Send paddle position 60x/sec
+    setInterval(() => {
+      socket.emit('paddle move', {up: upPressed, down: downPressed});
+    }, 1000 / 60);
+
+    // Draw state from server
+    socket.on('game state', state => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      //draw paddles
+      ctx.fillRect(0, state.p1.y, 10, 80);
+      ctx.fillRect(canvas.width - 10, state.p2.y, 10, 80);
+      //draw ball
+      ctx.beginPath();
+      ctx.arc(state.ball.x, state.ball.y, 8, 0, Math.PI*2);
+      ctx.fill();
+    })
+
     const log = msg => {
       const d = document.createElement('div');
       d.textContent = msg;
@@ -21,7 +54,7 @@
     socket.on('connect', () => log('Connected as ' + socket.id));
     socket.on('pong', () => log('🏓 Pong!'));
 
-    document.getElementById('pingBtn').onclick = () => {
+    document.getElementById('sendPing').onclick = () => {
       log('🏓 Sending ping…');
       socket.emit('ping');
     };
