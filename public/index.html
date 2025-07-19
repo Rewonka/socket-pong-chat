@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head><title>PingTest</title></head>
+<body>
+  <button id="pingBtn">Send Ping</button>
+  <div id="log"></div>
+  <hr>
+  <input id="chatInput" placeholder="Type a message..."/>
+  <button id="sendChat">Send</button>
+  <ul id="messages"></ul>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const log = msg => {
+      const d = document.createElement('div');
+      d.textContent = msg;
+      document.getElementById('log').append(d);
+    };
+
+    socket.on('connect', () => log('Connected as ' + socket.id));
+    socket.on('pong', () => log('🏓 Pong!'));
+
+    document.getElementById('pingBtn').onclick = () => {
+      log('🏓 Sending ping…');
+      socket.emit('ping');
+    };
+
+    document.getElementById('sendChat').onclick = () => {
+      const txt = document.getElementById('chatInput').value;
+      socket.emit('chat message', txt);
+      document.getElementById('chatInput').value = '';
+    };
+
+    socket.on('chat message', ({ id, text }) => {
+      const item = document.createElement('li');
+      item.textContent = id + ': ' + text;
+      document.getElementById('messages').append(item);
+    });
+  </script>
+</body>
+</html>
