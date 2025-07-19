@@ -10,8 +10,8 @@ const io = new Server(httpServer);
 
 let player = []; //socket
 const state = {
-  p1: { y: 160, speed: 5 },
-  p2: { y: 160, speed: 5 },
+  p1: { y: 160, speed: 8, score: 0 },
+  p2: { y: 160, speed: 8, score: 0 },
   ball: { x: 400, y: 200, vx: 4, vy:2 }
 };
 
@@ -63,7 +63,7 @@ setInterval(() => {
   state.ball.y += state.ball.vy;
 
   // Bounce off top/bottom
-  if (state.ball.y < 8 || state.ball.y > 392)
+  if (state.ball.y < 8 || state.ball.y > 492)
     state.ball.vy = -state.ball.vy;
 
   // Bounce off paddles
@@ -74,10 +74,25 @@ setInterval(() => {
     state.ball.vx = -state.ball.vx;
   }
 
-  // Reset if out of bounds
-  if (state.ball.x < 0 || state.ball.x > 800) {
-    state.ball = { x:400, y:200, vx:4, vy:2 };
+  if (state.ball.x < 0) {
+    state.ball.x = 400;
+    state.ball.y = 200;
+    state.ball.vx = -state.ball.vx;
+    state.ball.vy = -state.ball.vy;
+    state.p2.score++;
   }
+  if (state.ball.x > 800) {
+    state.ball.x = 400;
+    state.ball.y = 200;
+    state.ball.vx = -state.ball.vx;
+    state.ball.vy = -state.ball.vy;
+    state.p1.score++;
+  }
+
+  // Reset if out of bounds
+  // if (state.ball.x < 0 || state.ball.x > 800) {
+  //   state.ball = { x:400, y:200, vx:4, vy:2 };
+  // }
 
   // Broadcast to both players
   io.emit('game state', state);
