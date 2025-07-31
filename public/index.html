@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>PingTest</title>
+  <title>PongTest</title>
   <style>
         body {
             background-color: #0a0a0f;
@@ -74,6 +74,11 @@
 </head>
 <body>
   <h1>Cyberpunk Pong</h1>
+  <p>You are player: <span id="playerSide"></span></p>
+  <div>
+    Score: <span id="score">0 - 0</span>
+    <button id="restartBtn" style="margin-left: 20px;">Restart</button>
+  </div>
   <canvas id="game" width="800" height="500"></canvas>
   <div>
     <input id="chatInput" placeholder="Chat..."/>
@@ -88,105 +93,153 @@
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
     const socket = io();
+    const scoreElement = document.getElementById('score');
+    const restartBtn = document.getElementById('restartBtn');
 
-    // Local input
-    let upPressed = false, downPressed = false;
-    document.addEventListener('keydown', e => {
-      if (e.key === 'ArrowUp') upPressed = true;
-      if (e.key === 'ArrowDown') downPressed = true;
-    });
-    document.addEventListener('keyup', e => {
-      if (e.key === 'ArrowUp') upPressed = false;
-      if (e.key === 'ArrowDown') downPressed = false;
+    // Update score whenever server emits
+    socket.on('score-update', ({ p1, p2 }) => {
+      scoreElement.textContent = `${p1} - ${p2}`;
+      console.log(`Score: ${p1} - ${p2}`);
     });
 
-    // Send paddle position 60x/sec
-    setInterval(() => {
-      socket.emit('paddle move', {up: upPressed, down: downPressed});
-    }, 1000 / 60);
+    //when game is over, inform the players
+    socket.on('game-over', winner => {
+      const text = winner === playerSide 
+        ? 'You win! 🎉 '+ playerSide
+        : 'You lose! 😢 '+ playerSide ;
+      alert(text);
+    });
 
-    // Draw state from server
-    socket.on('game state', state => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      //Draw paddles
-      ctx.fillStyle = '#ff00ff';
-      ctx.fillRect(10, state.p1.y, 10, 80);
-      ctx.fillRect(canvas.width - 20, state.p2.y, 10, 80);
-      // Cyberpunk details
-      ctx.fillStyle = '#00ff99';
-      for (let i = 0; i < 3; i++) {
-        ctx.fillRect(10 + 2, state.p1.y + (80 / 4) * i + 10, 10 - 4, 5);
-        ctx.fillRect(canvas.width - 20 + 2,  state.p2.y + (80 / 4) * i + 10, 10 - 4, 5);
+    restartBtn.onclick = () => {
+      socket.emit('restart');q
+    };
+
+    let playerSide;
+
+    // show feedback if room full
+    socket.on('room-full', () => {
+      alert('Game is full! Try again later.');
+    });
+
+    // learn our side
+    socket.on('player-assigned', side => {
+      playerSide = side; // 'p1' or 'p2'
+      console.log('You are: ' + side);
+      if(side === 'p1') {
+        document.getElementById('playerSide').textContent = 'left';
+      } else {
+        document.getElementById('playerSide').textContent = 'right';
       }
-      // Glow effect
-      ctx.strokeStyle = '#ff00ff';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(10 - 2, state.p1.y - 2, 10 + 4, 80 + 4);
-      ctx.strokeRect(canvas.width - 20 - 2, state.p2.y - 2, 10 + 4, 80 + 4); 
+    });
 
-      //Draw ball
-      ctx.beginPath();
-      ctx.arc(state.ball.x, state.ball.y, 8, 0, Math.PI*2);
-      ctx.fillStyle = '#00ffff';
-      ctx.fill();
-      ctx.closePath();
-      // Glow effect
-      // ctx.beginPath();
-      // ctx.arc(state.ball.x, state.ball.y, 8 + 5, 0, Math.PI*2);
-      // ctx.strokeStyle = '#00ffff';
-      // ctx.lineWidth = 1;
-      // ctx.stroke();
-      // ctx.closePath();
+    // only start input & rendering after assignment
+    socket.on('player-assigned', () => {
+      startGame(); // the function that sets up key listeners & canvas loop
+    })
 
-      //Draw net
-      ctx.setLineDash([5, 15]);
-      ctx.beginPath();
-      ctx.moveTo(canvas.width / 2, 0);
-      ctx.lineTo(canvas.width / 2, canvas.height);
-      ctx.strokeStyle = '#00ff99';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.closePath();
+    
+    function startGame() {
+      // Local input
+      let upPressed = false, downPressed = false;
+      document.addEventListener('keydown', e => {
+        if (e.key === 'ArrowUp') upPressed = true;
+        if (e.key === 'ArrowDown') downPressed = true;
+      });
+      document.addEventListener('keyup', e => {
+        if (e.key === 'ArrowUp') upPressed = false;
+        if (e.key === 'ArrowDown') downPressed = false;
+      });
+      // Send paddle position 60x/sec
+      setInterval(() => {
+        socket.emit('paddle-move', {
+          up: upPressed,
+          down: downPressed
+        });
+      }, 1000 / 60);
 
-      //Add cyberpunk grid lines
-      ctx.strokeStyle = 'rgba(0, 255, 153, 0.2)';
-      ctx.lineWidth = 1;
-      // Horizontal grid lines
-      for (let i = 0; i < canvas.height; i += 50) {
+      // Draw state from server
+      socket.on('game state', state => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        //Draw paddles
+        ctx.fillStyle = '#ff00ff';
+        ctx.fillRect(10, state.p1.y, 10, 80);
+        ctx.fillRect(canvas.width - 20, state.p2.y, 10, 80);
+        // Cyberpunk details
+        ctx.fillStyle = '#00ff99';
+        for (let i = 0; i < 3; i++) {
+          ctx.fillRect(10 + 2, state.p1.y + (80 / 4) * i + 10, 10 - 4, 5);
+          ctx.fillRect(canvas.width - 20 + 2,  state.p2.y + (80 / 4) * i + 10, 10 - 4, 5);
+        }
+        // Glow effect
+        ctx.strokeStyle = '#ff00ff';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(10 - 2, state.p1.y - 2, 10 + 4, 80 + 4);
+        ctx.strokeRect(canvas.width - 20 - 2, state.p2.y - 2, 10 + 4, 80 + 4); 
+  
+        //Draw ball
         ctx.beginPath();
-        ctx.moveTo(0, i);
-        ctx.lineTo(canvas.width, i);
+        ctx.arc(state.ball.x, state.ball.y, 8, 0, Math.PI*2);
+        ctx.fillStyle = '#00ffff';
+        ctx.fill();
+        ctx.closePath();
+        // Glow effect
+        // ctx.beginPath();
+        // ctx.arc(state.ball.x, state.ball.y, 8 + 5, 0, Math.PI*2);
+        // ctx.strokeStyle = '#00ffff';
+        // ctx.lineWidth = 1;
+        // ctx.stroke();
+        // ctx.closePath();
+
+        //Draw net
+        ctx.setLineDash([5, 15]);
+        ctx.beginPath();
+        ctx.moveTo(canvas.width / 2, 0);
+        ctx.lineTo(canvas.width / 2, canvas.height);
+        ctx.strokeStyle = '#00ff99';
+        ctx.lineWidth = 2;
         ctx.stroke();
-      }
-      // Vertical grid lines
-      for (let i = 0; i < canvas.width; i += 50) {
-        if (i !== canvas.width / 2) { // Skip the middle line as we already have the net
+        ctx.setLineDash([]);
+        ctx.closePath();
+    
+        //Add cyberpunk grid lines
+        ctx.strokeStyle = 'rgba(0, 255, 153, 0.2)';
+        ctx.lineWidth = 1;
+        // Horizontal grid lines
+        for (let i = 0; i < canvas.height; i += 50) {
           ctx.beginPath();
-          ctx.moveTo(i, 0);
-          ctx.lineTo(i, canvas.height);
+          ctx.moveTo(0, i);
+          ctx.lineTo(canvas.width, i);
           ctx.stroke();
         }
-      }
+        // Vertical grid lines
+        for (let i = 0; i < canvas.width; i += 50) {
+          if (i !== canvas.width / 2) { // Skip the middle line as we already have the net
+            ctx.beginPath();
+            ctx.moveTo(i, 0);
+            ctx.lineTo(i, canvas.height);
+            ctx.stroke();
+          }
+        }
+    
+        //Draw score
+        ctx.font = 'bold 40px "Courier New"';
+        // p1 score with glow
+        ctx.fillStyle = '#00ffff';
+        ctx.fillText(state.score.p1, canvas.width / 4, 50);
+        ctx.shadowColor = '#00ffff';
+        ctx.shadowBlur = 10;
+        ctx.fillText(state.score.p1, canvas.width / 4, 50);
+        // p2 score with glow
+        ctx.fillStyle = '#00ffff';
+        ctx.fillText(state.score.p2, 3 * canvas.width / 4, 50);
+        ctx.shadowBlur = 10;
+        ctx.fillText(state.score.p2, 3 * canvas.width / 4, 50);
+        // Reset shadow
+        ctx.shadowBlur = 0;
+      });
+    }
 
-      //Draw score
-      ctx.font = 'bold 40px "Courier New"';
-      // p1 score with glow
-      ctx.fillStyle = '#00ffff';
-      ctx.fillText(state.p1.score, canvas.width / 4, 50);
-      ctx.shadowColor = '#00ffff';
-      ctx.shadowBlur = 10;
-      ctx.fillText(state.p1.score, canvas.width / 4, 50);
-      // p2 score with glow
-      ctx.fillStyle = '#00ffff';
-      ctx.fillText(state.p2.score, 3 * canvas.width / 4, 50);
-      ctx.shadowBlur = 10;
-      ctx.fillText(state.p2.score, 3 * canvas.width / 4, 50);
-      // Reset shadow
-      ctx.shadowBlur = 0;
-
-    })
 
     const log = msg => {
       const d = document.createElement('div');
