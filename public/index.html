@@ -39,7 +39,7 @@
         }
         li {
             color: #00ff99;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
             font-size: 1.2em;
             text-shadow: 0 0 5px #00ff99;
         }
@@ -47,9 +47,11 @@
         canvas {
             border: 3px solid #ff00ff;
             background-color: rgba(0, 0, 0, 0.8);
+            position: relative;
             display: block;
             margin: 0 auto 40px;
             box-shadow: 0 0 20px #ff00ff, inset 0 0 10px #00ffff;
+            z-index: 1;
         }
         
         /* Scanline effect */
@@ -70,58 +72,253 @@
             pointer-events: none;
             z-index: 999;
         }
-    </style>
+        #waitingOverlay {
+          position: absolute;
+          top: 0; left: 0;
+          width: 100vw; height: 100vh;
+          background: rgba(0, 0, 0, 0.8);
+          color: #fff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 2rem;
+          z-index: 10;
+        }
+        #gameoverOverlay {
+          position: absolute;
+          top: 0; left: 0;
+          width: 100vw; height: 100vh;
+          background: rgba(0, 0, 0, 0.8);
+          color: #fff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 2rem;
+          z-index: 10;
+        }
+        #scoreboard {
+          position: absolute;
+          top: 40%; left: 50%;
+          transform: translate(-50%);
+          font-size: 2rem;
+        }
+        #restartBtn {
+          position: absolute;
+          top: 30%; left: 50%;
+          transform: translate(-50%);
+          display: none;
+          padding: 8px 16px;
+          font-size: 1rem;
+        }
+        
+        #lobbyOverlay {
+          /* position: absolute; top:0; left:0;
+          width:100vw; height:100vh;
+          background: rgba(0,0,0,0.8);
+          color: #fff; display:flex;
+          flex-direction:column;
+          align-items:center; justify-content:center;
+          z-index: 20; */
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: flex-start;
+          height: 100vh;
+          z-index: 20;
+        }
+        /* Lobby overlay */
+        .lobby-container {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          height: 100%;
+          width: 100%;
+          gap: 1rem;
+          justify-content: center;
+          padding: 2rem;
+          box-sizing: border-box;
+        }
+
+        .lobby-box {
+          background: rgba(0, 0, 0, 0.6);
+          border: 2px solid #0f0;
+          border-radius: 8px;
+          padding: 1rem;
+          box-sizing: border-box;
+          /* flex: 1 1 280px; /* grow, shrink, base width */
+          width: 100%;
+          max-width: 360px;
+        }
+
+        .lobby-info .lobbyStatus {
+          margin-top: 0.5rem;
+        }
+        .lobby-info button {
+          display: block;
+          margin: 0.5rem auto;
+        }
+
+        .lobby-messages {
+          background: rgba(0, 0, 0, 0.6);
+          border: 2px solid #0f0;
+          border-radius: 8px;
+          padding: 1rem;
+          box-sizing: border-box;
+
+          flex : 1 1 auto;
+          width: 100%;
+          max-height: 300px;
+          overflow-y: auto;
+        }
+        .lobby-messages ul {
+          list-style: none;
+          padding: 0.5rem;
+          margin: 0;
+          text-align: left;
+        }
+        .lobby-info,
+        .lobby-chat {
+          flex: 0 0 auto;
+          width: 100%;
+          max-width: 360px;
+          /* display: flex;
+          gap: 0.5rem; */
+        }
+        .lobby-chat input {
+          flex: 1 1 auto;
+        }
+        .lobby-chat button {
+          flex: 0 0 auto;
+        }
+  </style>
 </head>
 <body>
+  <!-- Lobby overlay -->
+  <div id="lobbyOverlay">
+    <div class="lobby-container">
+      <!-- Box 1: lobby info -->
+      <div class="lobby-box lobby-info">
+        <h1>Cyberpunk Pong</h1>
+        <p>You are <span id="yourSide"></span></p>
+        <button id="readyBtn">Ready</button>
+        <div id="lobbyStatus">
+          Player 1: <span id="p1Status">–</span><br>
+          Player 2: <span id="p2Status">–</span>
+        </div>
+      </div>
+
+      <!-- Box 2: chat -->
+      <div class="lobby-box lobby-messages">
+        <ul id="messages" style="list-style:none; padding:0; margin-top:8px; overflow:auto;"></ul>
+      </div>
+      
+      <!-- Box 3: chat input -->
+      <div class="lobby-box lobby-chat">
+        <input id="chatInput" placeholder="Chat..." />
+        <button id="sendChat">Send</button>
+        <button id="sendPing">Ping</button>
+      </div>
+      <div id="log"></div>
+    </div>
+  </div>
+  <div id="waitingOverlay">Waiting for opponent...</div>
+  <div id="gameoverOverlay">
+    <span id="scoreboard">0 - 0</span>
+    Game Over!
+    <button id="restartBtn">Play Again</button>
+  </div>
   <h1>Cyberpunk Pong</h1>
   <p>You are player: <span id="playerSide"></span></p>
-  <div>
-    Score: <span id="score">0 - 0</span>
-    <button id="restartBtn" style="margin-left: 20px;">Restart</button>
-  </div>
+
   <canvas id="game" width="800" height="500"></canvas>
-  <div>
-    <input id="chatInput" placeholder="Chat..."/>
-    <button id="sendChat">Send</button>
-    <button id="sendPing">Ping</button>
-    <div id="log"></div>
-  </div>
-  <ul id="messages"></ul>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
     const socket = io();
-    const scoreElement = document.getElementById('score');
-    const restartBtn = document.getElementById('restartBtn');
+
+    const readyBtn       = document.getElementById('readyBtn');
+    const yourSideEl     = document.getElementById('yourSide');
+    const p1StatusEl     = document.getElementById('p1Status');
+    const p2StatusEl     = document.getElementById('p2Status');
+    const lobbyOverlay   = document.getElementById('lobbyOverlay');
+    const waitingOverlay = document.getElementById('waitingOverlay');
+    const scoreElement   = document.getElementById('scoreboard');
+    const restartBtn     = document.getElementById('restartBtn');
+    const chatInput      = document.getElementById('chatInput');
+    let gameStarted = false;
+    let playerSide;
+
+    // Initially hide game canvas until game starts
+    waitingOverlay.style.display = 'flex';
+
+    function showOnly(overlayId) {
+      ['lobbyOverlay','waitingOverlay','gameoverOverlay'].forEach(id => {
+        document.getElementById(id).style.display =
+          (id === overlayId ? 'flex' : 'none');
+      });
+    }
+
+    // When both players ready...
+    socket.on('game-start', () => {
+      waitingOverlay.style.display = 'none';
+      if (!gameStarted) {
+        startGame();
+        gameStarted = true;
+      }
+    });
 
     // Update score whenever server emits
     socket.on('score-update', ({ p1, p2 }) => {
       scoreElement.textContent = `${p1} - ${p2}`;
-      console.log(`Score: ${p1} - ${p2}`);
+      if (p1 === 0 || p2 === 0) {
+        restartBtn.style.display = 'none';
+        gameoverOverlay.style.display = 'none';
+      }
     });
 
     //when game is over, inform the players
     socket.on('game-over', winner => {
+      console.log('Game over: '+ winner);
       const text = winner === playerSide 
         ? 'You win! 🎉 '+ playerSide
         : 'You lose! 😢 '+ playerSide ;
-      alert(text);
+      // alert(text);
+      scoreElement.textContent = text;
+      restartBtn.style.display = 'block';
+      gameoverOverlay.style.display = 'flex';
+      gameStarted = false;
+      showOnly('gameoverOverlay');
     });
 
     restartBtn.onclick = () => {
-      socket.emit('restart');q
+      socket.emit('restart');
+      restartBtn.style.display = 'none';
+      lobbyOverlay.style.display = 'flex';
+      showOnly('lobbyOverlay');
     };
 
-    let playerSide;
+    chatInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        const text = chatInput.value.trim();
+        if (text !== '') {
+          socket.emit('chat-message', text);
+          chatInput.value = '';
+        }
+        e.preventDefault();
+      }
+    });
+
 
     // show feedback if room full
     socket.on('room-full', () => {
-      alert('Game is full! Try again later.');
+      showOnly('waitingOverlay');
+      waitingOverlay.textContent = 'Room is full!. Try again later.';
+      waitingOverlay.style.display = 'flex';
     });
 
-    // learn our side
+    // on assignment
     socket.on('player-assigned', side => {
       playerSide = side; // 'p1' or 'p2'
       console.log('You are: ' + side);
@@ -130,16 +327,42 @@
       } else {
         document.getElementById('playerSide').textContent = 'right';
       }
+      yourSideEl.textContent = side;
+      lobbyOverlay.style.display = 'flex';
+      showOnly('lobbyOverlay');
     });
 
-    // only start input & rendering after assignment
-    socket.on('player-assigned', () => {
-      startGame(); // the function that sets up key listeners & canvas loop
-    })
+    // when someone connects or hits ready
+    socket.on('lobby-update', ({ p1, p1Ready, p2, p2Ready }) => {
+      p1StatusEl.textContent = p1 ? (p1Ready ? 'Ready' : 'Waiting') : '–';
+      p2StatusEl.textContent = p2 ? (p2Ready ? 'Ready' : 'Waiting') : '–';
 
-    
+    // now actually show the lobby on *every* client
+    lobbyOverlay.style.display = 'flex';
+    waitingOverlay.style.display = 'none';
+    gameoverOverlay.style.display = 'none';
+    restartBtn.style.display = 'none';
+    readyBtn.disabled = false;
+    readyBtn.textContent = 'Ready';
+    });
+
+    // Ready button click
+    readyBtn.onclick = () => {
+      socket.emit('player-ready');
+      readyBtn.disabled = true;
+      readyBtn.textContent = 'Ready ✓';
+    };
+
+    // when both ready
+    socket.on('game-start', () => {
+      lobbyOverlay.style.display   = 'none';
+      waitingOverlay.style.display = 'none';
+      startGame();  // only kick off once
+    });
+
     function startGame() {
       // Local input
+      gameoverOverlay.style.display = 'none';
       let upPressed = false, downPressed = false;
       document.addEventListener('keydown', e => {
         if (e.key === 'ArrowUp') upPressed = true;
@@ -158,7 +381,7 @@
       }, 1000 / 60);
 
       // Draw state from server
-      socket.on('game state', state => {
+      socket.on('game-state', state => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
         //Draw paddles
@@ -257,11 +480,11 @@
 
     document.getElementById('sendChat').onclick = () => {
       const txt = document.getElementById('chatInput').value;
-      socket.emit('chat message', txt);
+      socket.emit('chat-message', txt);
       document.getElementById('chatInput').value = '';
     };
 
-    socket.on('chat message', ({ id, text }) => {
+    socket.on('chat-message', ({ id, text }) => {
       const item = document.createElement('li');
       item.textContent = id + ': ' + text;
       document.getElementById('messages').append(item);
